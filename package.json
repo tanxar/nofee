@@ -1,0 +1,15 @@
+{
+  "name": "nofee-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "client:start": "cd client && npm start",
+    "client:android": "cd client && npm run android",
+    "client:ios": "cd client && npm run ios",
+    "merchant:start": "cd merchant && npm start",
+    "merchant:android": "cd merchant && npm run android",
+    "merchant:ios": "cd merchant && npm run ios",
+    "install:all": "npm install && cd client && npm install && cd ../merchant && npm install"
+  }
+}
+

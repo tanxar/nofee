@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "NoFee Merchant",
+    "slug": "nofee-merchant",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B35"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nofee.merchant"
+    },
+    "android": {
+      "package": "com.nofee.merchant"
+    }
+  }
+}
+

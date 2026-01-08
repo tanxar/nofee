@@ -1,0 +1,231 @@
+// Prisma Schema for NoFee Platform
+// This is the single source of truth for your database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         UserRole
+  name         String?
+  phone        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  storesAsMerchant Store[]        @relation("MerchantStores")
+  ordersAsCustomer Order[]       @relation("CustomerOrders")
+  notifications    Notification[]
+  reviews          Review[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  merchant
+  customer
+}
+
+model Store {
+  id                    String    @id @default(uuid())
+  merchantId            String    @map("merchant_id")
+  name                  String
+  description           String?
+  phone                 String?
+  email                 String?
+  address               String?
+  latitude              Decimal?  @db.Decimal(10, 8)
+  longitude             Decimal?  @db.Decimal(11, 8)
+  openingHours          Json?     @map("opening_hours")
+  minOrderAmount        Decimal   @default(0) @map("min_order_amount") @db.Decimal(10, 2)
+  deliveryFee           Decimal   @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  estimatedDeliveryTime Int       @default(30) @map("estimated_delivery_time")
+  acceptsCash           Boolean   @default(true) @map("accepts_cash")
+  acceptsCard           Boolean   @default(true) @map("accepts_card")
+  acceptsDigital        Boolean   @default(true) @map("accepts_digital")
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  merchant   User       @relation("MerchantStores", fields: [merchantId], references: [id], onDelete: Cascade)
+  products   Product[]
+  orders     Order[]
+  promotions Promotion[]
+  reviews    Review[]
+
+  @@map("stores")
+}
+
+model Product {
+  id             String    @id @default(uuid())
+  storeId        String    @map("store_id")
+  name           String
+  description    String?
+  price          Decimal   @db.Decimal(10, 2)
+  category       String?
+  imageUrl       String?   @map("image_url")
+  available      Boolean   @default(true)
+  featured       Boolean   @default(false)
+  preparationTime Int?     @map("preparation_time")
+  stock          Int?
+  tags           String[]
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // Relations
+  store      Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([storeId])
+  @@index([category])
+  @@map("products")
+}
+
+model Order {
+  id               String        @id @default(uuid())
+  orderNumber      String        @unique @map("order_number")
+  customerId       String?       @map("customer_id")
+  storeId          String        @map("store_id")
+  status           OrderStatus   @default(pending)
+  paymentMethod    PaymentMethod? @map("payment_method")
+  deliveryType     DeliveryType? @map("delivery_type")
+  subtotal         Decimal       @db.Decimal(10, 2)
+  deliveryFee      Decimal       @default(0) @map("delivery_fee") @db.Decimal(10, 2)
+  discount         Decimal       @default(0) @db.Decimal(10, 2)
+  total            Decimal       @db.Decimal(10, 2)
+  deliveryAddress  String?       @map("delivery_address")
+  customerNotes    String?       @map("customer_notes")
+  estimatedDelivery DateTime?    @map("estimated_delivery")
+  deliveredAt      DateTime?     @map("delivered_at")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  // Relations
+  customer     User?        @relation("CustomerOrders", fields: [customerId], references: [id])
+  store        Store        @relation(fields: [storeId], references: [id])
+  items        OrderItem[]
+  notifications Notification[]
+  review       Review?
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+enum OrderStatus {
+  pending
+  preparing
+  ready
+  completed
+  cancelled
+}
+
+enum PaymentMethod {
+  card
+  cash
+  digital
+}
+
+enum DeliveryType {
+  delivery
+  pickup
+}
+
+model OrderItem {
+  id          String   @id @default(uuid())
+  orderId    String   @map("order_id")
+  productId  String?  @map("product_id")
+  productName String  @map("product_name")
+  quantity   Int
+  price      Decimal  @db.Decimal(10, 2)
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Promotion {
+  id                  String          @id @default(uuid())
+  storeId             String          @map("store_id")
+  name                String
+  description         String?
+  type                PromotionType
+  value               Decimal         @db.Decimal(10, 2)
+  startDate           DateTime        @map("start_date")
+  endDate             DateTime        @map("end_date")
+  active              Boolean         @default(true)
+  minOrderAmount      Decimal?        @map("min_order_amount") @db.Decimal(10, 2)
+  applicableProductIds String[]       @map("applicable_product_ids")
+  createdAt           DateTime        @default(now()) @map("created_at")
+  updatedAt           DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@map("promotions")
+}
+
+enum PromotionType {
+  percentage
+  fixed
+  buy_x_get_y
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  orderId   String?          @map("order_id")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  // Relations
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([userId])
+  @@index([read])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  order
+  system
+  promotion
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  orderId   String   @unique @map("order_id")
+  customerId String  @map("customer_id")
+  storeId   String   @map("store_id")
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  order    Order  @relation(fields: [orderId], references: [id])
+  customer User   @relation(fields: [customerId], references: [id])
+  store    Store  @relation(fields: [storeId], references: [id])
+
+  @@map("reviews")
+}
+
