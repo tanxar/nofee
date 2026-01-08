@@ -1,52 +1,151 @@
-# NoFee Monorepo
+# NoFee - Food Delivery Platform
 
-Monorepo για τα NoFee apps.
+A comprehensive food delivery platform monorepo with separate apps for consumers, merchants, and a backend API.
 
-## Structure
+## 📁 Project Structure
 
 ```
-nofee client]/
-├── client/          # Consumer app
-├── merchant/        # Merchant app
-├── backend/         # Backend API (Node.js + PostgreSQL)
-└── package.json     # Root package.json
+.
+├── client/          # Consumer mobile app (React Native/Expo)
+├── merchant/        # Merchant mobile app (React Native/Expo)
+└── backend/         # Backend API (Node.js/Express/Prisma/PostgreSQL)
 ```
 
-## Setup
+## 🚀 Getting Started
 
-```bash
-npm run install:all
-```
+### Prerequisites
 
-## Run Apps
+- Node.js 18+ and npm
+- PostgreSQL (local or cloud)
+- Expo CLI (for mobile apps)
+
+### Backend Setup
+
+1. Navigate to backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your database credentials
+   ```
+
+4. Run database migrations:
+   ```bash
+   npm run prisma:migrate
+   ```
+
+5. Start the server:
+   ```bash
+   npm run dev
+   ```
+
+The API will be available at `http://localhost:3000`
+
+### Client App Setup
+
+1. Navigate to client directory:
+   ```bash
+   cd client
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the app:
+   ```bash
+   npm start
+   ```
+
+### Merchant App Setup
+
+1. Navigate to merchant directory:
+   ```bash
+   cd merchant
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Start the app:
+   ```bash
+   npm start
+   ```
+
+## 📱 Features
 
 ### Client App
-```bash
-npm run client:start
-# ή
-cd client && npm start
-```
+- Browse restaurants and menus
+- Add items to cart
+- Place orders
+- Track favorites
+- User profile
 
 ### Merchant App
+- Dashboard with statistics
+- Order management
+- Product management
+- Analytics
+- Settings and promotions
+
+### Backend API
+- RESTful API for orders, products, and stores
+- PostgreSQL database with Prisma ORM
+- JWT authentication (to be implemented)
+- Real-time order updates (to be implemented)
+
+## 🛠️ Tech Stack
+
+### Mobile Apps
+- React Native
+- Expo
+- TypeScript
+- React Navigation
+- Context API
+
+### Backend
+- Node.js
+- Express
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+- Zod (validation)
+
+## 📝 API Documentation
+
+See [backend/API_DOCS.md](./backend/API_DOCS.md) for detailed API documentation.
+
+## 🔧 Development
+
+### Running All Services
+
+From the root directory:
+
 ```bash
-npm run merchant:start
-# ή
+# Install all dependencies
+npm run install:all
+
+# Start backend
+cd backend && npm run dev
+
+# Start client app (in new terminal)
+cd client && npm start
+
+# Start merchant app (in new terminal)
 cd merchant && npm start
 ```
 
-## Backend API
+## 📄 License
 
-```bash
-cd backend
-npm install
-npm run dev
-```
-
-Server θα τρέχει στο `http://localhost:3000`
-
-Για database setup, δες το [backend/README.md](backend/README.md)
-
-## Development
-
-Κάθε app έχει το δικό του `package.json` και dependencies. Μπορείς να δουλεύεις σε κάθε ένα ξεχωριστά.
-
+Private project
