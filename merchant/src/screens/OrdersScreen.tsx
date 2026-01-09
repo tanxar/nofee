@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +44,7 @@ export default function OrdersScreen() {
   const getStatusText = (status: OrderStatus) => {
     switch (status) {
       case 'pending':
-        return 'Εκκρεμεί';
+        return 'Αναμονή Αποδοχής';
       case 'preparing':
         return 'Σε προετοιμασία';
       case 'ready':
@@ -65,6 +66,32 @@ export default function OrdersScreen() {
     }
   };
 
+  const handleRejectOrder = (orderId: string, orderNumber: string) => {
+    Alert.alert(
+      'Απόρριψη Παραγγελίας',
+      `Είστε σίγουροι ότι θέλετε να απορρίψετε την παραγγελία #${orderNumber}?`,
+      [
+        {
+          text: 'Ακύρωση',
+          style: 'cancel',
+        },
+        {
+          text: 'Απόρριψη',
+          style: 'destructive',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            handleStatusUpdate(orderId, 'cancelled');
+            Toast.show({
+              type: 'info',
+              text1: 'Παραγγελία Απορρίφθηκε',
+              text2: `Η παραγγελία #${orderNumber} απορρίφθηκε`,
+            });
+          },
+        },
+      ]
+    );
+  };
+
   const getNextStatus = (currentStatus: OrderStatus): OrderStatus | null => {
     switch (currentStatus) {
       case 'pending':
@@ -80,7 +107,7 @@ export default function OrdersScreen() {
 
   const filters: Array<{ label: string; value: OrderStatus | 'all' }> = [
     { label: 'Όλες', value: 'all' },
-    { label: 'Εκκρεμεί', value: 'pending' },
+    { label: 'Αναμονή Αποδοχής', value: 'pending' },
     { label: 'Σε προετοιμασία', value: 'preparing' },
     { label: 'Έτοιμο', value: 'ready' },
     { label: 'Ολοκληρώθηκε', value: 'completed' },
@@ -209,26 +236,43 @@ export default function OrdersScreen() {
                   <Text style={styles.orderTotal}>
                     Σύνολο: €{order.total.toFixed(2)}
                   </Text>
-                  {nextStatus && (
-                    <TouchableOpacity
-                      style={[
-                        styles.actionButton,
-                        { backgroundColor: getStatusColor(nextStatus) },
-                      ]}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleStatusUpdate(order.id, nextStatus);
-                      }}
-                    >
-                      <Text style={styles.actionButtonText}>
-                        {nextStatus === 'preparing'
-                          ? 'Ξεκίνα προετοιμασία'
-                          : nextStatus === 'ready'
-                          ? 'Σημάνει έτοιμο'
-                          : 'Ολοκλήρωσε'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  <View style={styles.actionButtonsContainer}>
+                    {order.status === 'pending' && (
+                      <TouchableOpacity
+                        style={[styles.actionButton, styles.rejectButton]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleRejectOrder(order.id, order.orderNumber);
+                        }}
+                      >
+                        <Ionicons name="close-circle" size={18} color="#FFF" />
+                        <Text style={styles.actionButtonText}>Απόρριψη</Text>
+                      </TouchableOpacity>
+                    )}
+                    {nextStatus && (
+                      <TouchableOpacity
+                        style={[
+                          styles.actionButton,
+                          { backgroundColor: getStatusColor(nextStatus) },
+                          order.status === 'pending' && styles.acceptButton,
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleStatusUpdate(order.id, nextStatus);
+                        }}
+                      >
+                        <Text style={styles.actionButtonText}>
+                          {order.status === 'pending'
+                            ? 'Αποδοχή Παραγγελίας'
+                            : nextStatus === 'preparing'
+                            ? 'Ξεκίνα προετοιμασία'
+                            : nextStatus === 'ready'
+                            ? 'Σημάνει έτοιμο'
+                            : 'Ολοκλήρωσε'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </TouchableOpacity>
             );
@@ -305,6 +349,53 @@ export default function OrdersScreen() {
                     </Text>
                   </View>
                 </ScrollView>
+
+                {/* Modal Actions */}
+                {selectedOrder.status === 'pending' && (
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalRejectButton]}
+                      onPress={() => {
+                        handleRejectOrder(selectedOrder.id, selectedOrder.orderNumber);
+                        setSelectedOrder(null);
+                      }}
+                    >
+                      <Ionicons name="close-circle" size={20} color="#FFF" />
+                      <Text style={styles.modalButtonText}>Απόρριψη</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalAcceptButton]}
+                      onPress={() => {
+                        handleStatusUpdate(selectedOrder.id, 'preparing');
+                        setSelectedOrder(null);
+                      }}
+                    >
+                      <Text style={styles.modalButtonText}>Αποδοχή Παραγγελίας</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {selectedOrder.status !== 'pending' && getNextStatus(selectedOrder.status) && (
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={[
+                        styles.modalButton,
+                        { backgroundColor: getStatusColor(getNextStatus(selectedOrder.status)!) },
+                      ]}
+                      onPress={() => {
+                        handleStatusUpdate(selectedOrder.id, getNextStatus(selectedOrder.status)!);
+                        setSelectedOrder(null);
+                      }}
+                    >
+                      <Text style={styles.modalButtonText}>
+                        {getNextStatus(selectedOrder.status) === 'preparing'
+                          ? 'Ξεκίνα προετοιμασία'
+                          : getNextStatus(selectedOrder.status) === 'ready'
+                          ? 'Σημάνει έτοιμο'
+                          : 'Ολοκλήρωσε'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             )}
           </View>
@@ -427,9 +518,6 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   orderFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
@@ -438,11 +526,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1F2937',
+    marginBottom: 12,
+  },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'flex-end',
   },
   actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    minWidth: 120,
+  },
+  acceptButton: {
+    flex: 1,
+  },
+  rejectButton: {
+    backgroundColor: '#EF4444',
   },
   actionButtonText: {
     color: '#FFF',
@@ -514,6 +619,34 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1F2937',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalRejectButton: {
+    backgroundColor: '#EF4444',
+  },
+  modalAcceptButton: {
+    backgroundColor: '#10B981',
+  },
+  modalButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   retryButton: {
     marginTop: 16,

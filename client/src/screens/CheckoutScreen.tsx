@@ -16,7 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { restaurants } from '../data/mockData';
+import { ordersService, CreateOrderInput } from '../services/ordersService';
 import MapModal from '../components/MapModal';
 
 type PaymentMethod = 'card' | 'cash' | 'digital';
@@ -32,6 +34,8 @@ export default function CheckoutScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { cartItems, getTotalPrice, clearCart, currentRestaurantId } = useCart();
+  const { user } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Mock saved addresses - in real app, these would come from user profile/API
   const [savedAddresses] = useState<Address[]>([
@@ -110,7 +114,7 @@ export default function CheckoutScreen() {
     });
   };
 
-  const handleConfirmOrder = () => {
+  const handleConfirmOrder = async () => {
     if (!deliveryAddress.trim() && deliveryFee > 0) {
       Toast.show({
         type: 'error',
@@ -122,20 +126,106 @@ export default function CheckoutScreen() {
       return;
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    clearCart();
-    
-    Toast.show({
-      type: 'success',
-      text1: 'Η παραγγελία ολοκληρώθηκε! 🎉',
-      text2: 'Σας ευχαριστούμε!',
-      position: 'top',
-      visibilityTime: 3000,
-    });
+    if (!currentRestaurantId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Σφάλμα',
+        text2: 'Δεν υπάρχει store ID',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      return;
+    }
 
-    setTimeout(() => {
-      (navigation as any).navigate('Home');
-    }, 1500);
+    if (cartItems.length === 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Σφάλμα',
+        text2: 'Το καλάθι είναι άδειο',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+      return;
+    }
+
+    // Check if it's a backend store (UUID) or mock store
+    const isBackendStore = currentRestaurantId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentRestaurantId);
+    
+    if (!isBackendStore) {
+      // Mock store - just show success message without sending to backend
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      clearCart();
+      
+      Toast.show({
+        type: 'success',
+        text1: 'Η παραγγελία ολοκληρώθηκε! 🎉',
+        text2: 'Σας ευχαριστούμε!',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+
+      setTimeout(() => {
+        // Reset navigation stack to prevent going back
+        (navigation as any).reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+      }, 1500);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Convert cart items to order items
+      const orderItems = cartItems.map((item) => ({
+        productId: item.id,
+        productName: item.name,
+        quantity: item.quantity,
+        price: item.totalPrice || item.price,
+        notes: item.selectedExtras?.map(e => e.name).join(', ') || undefined,
+      }));
+
+      const orderData: CreateOrderInput = {
+        customerId: user?.id,
+        storeId: currentRestaurantId,
+        paymentMethod: paymentMethod,
+        deliveryType: deliveryFee > 0 ? 'delivery' : 'pickup',
+        deliveryAddress: deliveryFee > 0 ? deliveryAddress : undefined,
+        customerNotes: orderNotes.trim() || undefined,
+        items: orderItems,
+      };
+
+      const order = await ordersService.create(orderData);
+
+      if (order) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        clearCart();
+        
+        // Navigate to OrderStatusScreen and reset navigation stack
+        // This prevents going back to CheckoutScreen
+        (navigation as any).reset({
+          index: 0,
+          routes: [
+            { name: 'Home' },
+            { name: 'OrderStatus', params: { orderId: order.id } },
+          ],
+        });
+      } else {
+        throw new Error('Failed to create order');
+      }
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Σφάλμα',
+        text2: error.message || 'Αποτυχία δημιουργίας παραγγελίας',
+        position: 'top',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const tipOptions = [10, 15, 20];
@@ -521,13 +611,18 @@ export default function CheckoutScreen() {
         {/* Confirm Button */}
         <Animated.View entering={FadeInUp.delay(400)} style={styles.footer}>
           <TouchableOpacity
-            style={styles.confirmButton}
+            style={[styles.confirmButton, isSubmitting && styles.confirmButtonDisabled]}
             onPress={handleConfirmOrder}
             activeOpacity={0.8}
+            disabled={isSubmitting}
           >
-            <Text style={styles.confirmButtonText}>
-              Επιβεβαίωση Παραγγελίας - €{total.toFixed(2)}
-            </Text>
+            {isSubmitting ? (
+              <Text style={styles.confirmButtonText}>Αποστολή...</Text>
+            ) : (
+              <Text style={styles.confirmButtonText}>
+                Επιβεβαίωση Παραγγελίας - €{total.toFixed(2)}
+              </Text>
+            )}
           </TouchableOpacity>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -1028,6 +1123,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     elevation: 6,
+  },
+  confirmButtonDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#9CA3AF',
     shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

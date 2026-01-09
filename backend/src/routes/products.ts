@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { productsController } from '../controllers/productsController';
+import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -18,17 +19,17 @@ router.get('/', productsController.getAll);
 // Get product by ID
 router.get('/:id', productsController.getById);
 
-// Create product
-router.post('/', productsController.create);
+// Create product (merchant only)
+router.post('/', authenticate, requireRole(['merchant']), productsController.create);
 
-// Update product
-router.patch('/:id', productsController.update);
+// Update product (merchant only)
+router.patch('/:id', authenticate, requireRole(['merchant']), productsController.update);
 
-// Toggle product availability
-router.patch('/:id/toggle', productsController.toggleAvailability);
+// Toggle product availability (merchant only)
+router.patch('/:id/toggle', authenticate, requireRole(['merchant']), productsController.toggleAvailability);
 
-// Delete product
-router.delete('/:id', productsController.delete);
+// Delete product (merchant only)
+router.delete('/:id', authenticate, requireRole(['merchant']), productsController.delete);
 
 export default router;
 

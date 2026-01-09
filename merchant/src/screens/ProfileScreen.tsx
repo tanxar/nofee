@@ -10,9 +10,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../context/AuthContext';
+import { useProducts } from '../context/ProductsContext';
+import { useOrders } from '../context/OrdersContext';
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
+  const { logout, user } = useAuth();
+  const { setStoreId: setProductsStoreId } = useProducts();
+  const { setStoreId: setOrdersStoreId } = useOrders();
   const menuSections = [
     {
       title: 'Μαγαζί',
@@ -120,7 +126,7 @@ export default function ProfileScreen() {
               <Ionicons name="storefront" size={32} color="#FF6B35" />
             </View>
             <Text style={styles.restaurantName}>Το Μαγαζί σας</Text>
-            <Text style={styles.restaurantEmail}>merchant@nofee.gr</Text>
+            <Text style={styles.restaurantEmail}>{user?.email || 'merchant@nofee.gr'}</Text>
           </View>
         </LinearGradient>
 
@@ -132,8 +138,19 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 key={item.id}
                 style={styles.menuItem}
-                onPress={() => {
-                  if ((item as any).screen) {
+                onPress={async () => {
+                  if (item.id === '10') {
+                    // Logout
+                    try {
+                      // Clear storeIds
+                      setProductsStoreId(undefined);
+                      setOrdersStoreId(undefined);
+                      // Logout
+                      await logout();
+                    } catch (error) {
+                      console.error('Error logging out:', error);
+                    }
+                  } else if ((item as any).screen) {
                     navigation.navigate((item as any).screen as never);
                   } else {
                     console.log('Pressed:', item.name);

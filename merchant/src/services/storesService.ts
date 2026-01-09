@@ -29,6 +29,24 @@ export interface StoreStats {
   totalRevenue: number;
 }
 
+export interface CreateStoreInput {
+  merchantId: string;
+  name: string;
+  description?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  openingHours?: any;
+  minOrderAmount?: number;
+  deliveryFee?: number;
+  estimatedDeliveryTime?: number;
+  acceptsCash?: boolean;
+  acceptsCard?: boolean;
+  acceptsDigital?: boolean;
+}
+
 export const storesService = {
   // Get store by ID
   async getById(storeId: string): Promise<Store | null> {
@@ -45,6 +63,12 @@ export const storesService = {
   // Get store statistics
   async getStats(storeId: string): Promise<StoreStats | null> {
     const response = await api.get<StoreStats>(`/stores/${storeId}/stats`);
+    return response.data || null;
+  },
+
+  // Create store
+  async create(storeData: CreateStoreInput): Promise<Store | null> {
+    const response = await api.post<Store>('/stores', storeData);
     return response.data || null;
   },
 

@@ -22,6 +22,11 @@ JWT_EXPIRES_IN=7d
 
 # CORS
 CORS_ORIGIN=http://localhost:19006
+
+# Cloudinary (for image uploads)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
 ```
 
 ## DATABASE_URL Format

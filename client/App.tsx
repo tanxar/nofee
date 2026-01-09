@@ -10,11 +10,28 @@ import HomeScreen from './src/screens/HomeScreen';
 import RestaurantScreen from './src/screens/RestaurantScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CheckoutScreen from './src/screens/CheckoutScreen';
+import OrderStatusScreen from './src/screens/OrderStatusScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import { CartProvider } from './src/context/CartContext';
 import { FavoritesProvider } from './src/context/FavoritesContext';
 import { StoresProvider } from './src/context/StoresContext';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 
 const Stack = createStackNavigator();
+
+function AuthStack() {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
+  );
+}
 
 function MainStack() {
   return (
@@ -27,8 +44,23 @@ function MainStack() {
       <Stack.Screen name="Restaurant" component={RestaurantScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Checkout" component={CheckoutScreen} />
+      <Stack.Screen name="OrderStatus" component={OrderStatusScreen} />
     </Stack.Navigator>
   );
+}
+
+function RootNavigator() {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Φόρτωση...</Text>
+      </View>
+    );
+  }
+
+  return isAuthenticated ? <MainStack /> : <AuthStack />;
 }
 
 function AppContent() {
@@ -36,15 +68,17 @@ function AppContent() {
     return (
       <GestureHandlerRootView style={{ flex: 1 }}>
         <NavigationContainer>
-          <StoresProvider>
-            <FavoritesProvider>
-              <CartProvider>
-                <StatusBar style="dark" />
-                <MainStack />
-                <Toast />
-              </CartProvider>
-            </FavoritesProvider>
-          </StoresProvider>
+          <AuthProvider>
+            <StoresProvider>
+              <FavoritesProvider>
+                <CartProvider>
+                  <StatusBar style="dark" />
+                  <RootNavigator />
+                  <Toast />
+                </CartProvider>
+              </FavoritesProvider>
+            </StoresProvider>
+          </AuthProvider>
         </NavigationContainer>
       </GestureHandlerRootView>
     );
@@ -117,6 +151,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#6B7280',
+    marginTop: 12,
   },
 });
 

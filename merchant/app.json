@@ -14,11 +14,29 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nofee.merchant"
+      "bundleIdentifier": "com.nofee.merchant",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Χρειαζόμαστε πρόσβαση στις φωτογραφίες σας για να ανεβάσετε εικόνες προϊόντων.",
+        "NSCameraUsageDescription": "Χρειαζόμαστε πρόσβαση στην κάμερα για να τραβήξετε φωτογραφίες προϊόντων."
+      }
     },
     "android": {
-      "package": "com.nofee.merchant"
-    }
+      "package": "com.nofee.merchant",
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Χρειαζόμαστε πρόσβαση στις φωτογραφίες σας για να ανεβάσετε εικόνες προϊόντων.",
+          "cameraPermission": "Χρειαζόμαστε πρόσβαση στην κάμερα για να τραβήξετε φωτογραφίες προϊόντων."
+        }
+      ]
+    ]
   }
 }
 

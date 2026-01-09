@@ -1,17 +1,25 @@
 import express, { Express, Request, Response } from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { testConnection, disconnectDatabase } from './config/database';
+import { initializeSocket } from './config/socket';
 
 // Import routes
+import authRoutes from './routes/auth';
 import ordersRoutes from './routes/orders';
 import productsRoutes from './routes/products';
 import storesRoutes from './routes/stores';
+import uploadRoutes from './routes/upload';
 
 dotenv.config();
 
 const app: Express = express();
+const httpServer = createServer(app);
 const PORT = process.env.PORT || 3000;
+
+// Initialize Socket.IO
+initializeSocket(httpServer);
 
 // Middleware
 app.use(cors({
@@ -40,17 +48,21 @@ app.get('/api', (req: Request, res: Response) => {
     version: '1.0.0',
     endpoints: {
       health: '/health',
+      auth: '/api/auth',
       orders: '/api/orders',
       products: '/api/products',
       stores: '/api/stores',
+      upload: '/api/upload',
     },
   });
 });
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/stores', storesRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -64,9 +76,10 @@ app.use((err: Error, req: Request, res: Response, next: any) => {
 });
 
 // Start server
-const server = app.listen(PORT, async () => {
+httpServer.listen(PORT, async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔌 WebSocket server ready`);
   
   // Test database connection on startup
   await testConnection();
@@ -75,7 +88,7 @@ const server = app.listen(PORT, async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM signal received: closing HTTP server');
-  server.close(async () => {
+  httpServer.close(async () => {
     await disconnectDatabase();
     process.exit(0);
   });
@@ -83,7 +96,7 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('SIGINT signal received: closing HTTP server');
-  server.close(async () => {
+  httpServer.close(async () => {
     await disconnectDatabase();
     process.exit(0);
   });

@@ -14,11 +14,29 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.nofee.client"
+      "bundleIdentifier": "com.nofee.client",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Χρειαζόμαστε πρόσβαση στις φωτογραφίες σας για να ανεβάσετε εικόνες προφίλ.",
+        "NSCameraUsageDescription": "Χρειαζόμαστε πρόσβαση στην κάμερα για να τραβήξετε φωτογραφίες."
+      }
     },
     "android": {
-      "package": "com.nofee.client"
-    }
+      "package": "com.nofee.client",
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Χρειαζόμαστε πρόσβαση στις φωτογραφίες σας για να ανεβάσετε εικόνες προφίλ.",
+          "cameraPermission": "Χρειαζόμαστε πρόσβαση στην κάμερα για να τραβήξετε φωτογραφίες."
+        }
+      ]
+    ]
   }
 }
 

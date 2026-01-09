@@ -9,11 +9,15 @@ import {
   Modal,
   Switch,
   RefreshControl,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useProducts } from '../context/ProductsContext';
 import { Product } from '../services/productsService';
+import { uploadService } from '../services/uploadService';
 import Toast from 'react-native-toast-message';
 import * as Haptics from 'expo-haptics';
 
@@ -26,12 +30,14 @@ export default function ProductsScreen() {
     toggleProductAvailability, 
     updateProduct, 
     deleteProduct, 
-    addProduct 
+    addProduct,
+    storeId 
   } = useProducts();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const categories = ['all', ...Array.from(new Set(products.map((p) => p.category)))];
 
@@ -65,6 +71,71 @@ export default function ProductsScreen() {
     setSelectedProduct(null);
   };
 
+  const handleImagePicker = async () => {
+    try {
+      // Request permissions
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Toast.show({
+          type: 'error',
+          text1: 'Δικαίωμα',
+          text2: 'Χρειάζεται άδεια για πρόσβαση στις φωτογραφίες',
+        });
+        return;
+      }
+
+      // Launch image picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images', // MediaType: 'images' | 'videos' | 'livePhotos'
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setUploadingImage(true);
+        const imageUri = result.assets[0].uri;
+
+        try {
+          // Upload to Cloudinary
+          const uploadResult = await uploadService.uploadImage(
+            imageUri,
+            'products',
+            { width: 800, height: 800 }
+          );
+
+          // Update product with image URL
+          setSelectedProduct({
+            ...selectedProduct!,
+            imageUrl: uploadResult.url,
+          });
+
+          Toast.show({
+            type: 'success',
+            text1: 'Επιτυχία',
+            text2: 'Η εικόνα ανέβηκε επιτυχώς',
+          });
+        } catch (error: any) {
+          Toast.show({
+            type: 'error',
+            text1: 'Σφάλμα',
+            text2: error.message || 'Αποτυχία ανέβασματος εικόνας',
+          });
+        } finally {
+          setUploadingImage(false);
+        }
+      }
+    } catch (error: any) {
+      console.error('Image picker error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Σφάλμα',
+        text2: 'Αποτυχία επιλογής εικόνας',
+      });
+      setUploadingImage(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -73,13 +144,24 @@ export default function ProductsScreen() {
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
+            if (!storeId) {
+              Toast.show({
+                type: 'error',
+                text1: 'Σφάλμα',
+                text2: 'Δεν βρέθηκε Store. Παρακαλώ δημιουργήστε ένα Store πρώτα από το Προφίλ.',
+              });
+              return;
+            }
             setSelectedProduct({
               id: Date.now().toString(),
+              storeId: storeId,
               name: '',
               description: '',
               price: 0,
               category: '',
               available: true,
+              featured: false,
+              imageUrl: undefined,
             });
             setIsEditModalVisible(true);
           }}
@@ -165,6 +247,12 @@ export default function ProductsScreen() {
                 setIsEditModalVisible(true);
               }}
             >
+              {product.imageUrl && (
+                <Image
+                  source={{ uri: product.imageUrl }}
+                  style={styles.productImage}
+                />
+              )}
               <View style={styles.productInfo}>
                 <View style={styles.productHeader}>
                   <Text style={styles.productName}>{product.name}</Text>
@@ -178,7 +266,9 @@ export default function ProductsScreen() {
                   {product.description}
                 </Text>
                 <View style={styles.productFooter}>
-                  <Text style={styles.productPrice}>€{product.price.toFixed(2)}</Text>
+                  <Text style={styles.productPrice}>
+                    €{typeof product.price === 'number' ? product.price.toFixed(2) : parseFloat(String(product.price || 0)).toFixed(2)}
+                  </Text>
                   <Text style={styles.productCategory}>{product.category}</Text>
                 </View>
               </View>
@@ -254,7 +344,7 @@ export default function ProductsScreen() {
                 <Text style={styles.modalLabel}>Τιμή (€)</Text>
                 <TextInput
                   style={styles.modalInput}
-                  value={selectedProduct?.price.toString()}
+                  value={selectedProduct?.price ? String(selectedProduct.price) : ''}
                   onChangeText={(text) =>
                     setSelectedProduct({
                       ...selectedProduct!,
@@ -276,6 +366,46 @@ export default function ProductsScreen() {
                   }
                   placeholder="Κατηγορία"
                 />
+              </View>
+
+              <View style={styles.modalSection}>
+                <Text style={styles.modalLabel}>Εικόνα Προϊόντος</Text>
+                {selectedProduct?.imageUrl ? (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{ uri: selectedProduct.imageUrl }}
+                      style={styles.imagePreview}
+                    />
+                    <TouchableOpacity
+                      style={styles.removeImageButton}
+                      onPress={() =>
+                        setSelectedProduct({
+                          ...selectedProduct!,
+                          imageUrl: undefined,
+                        })
+                      }
+                    >
+                      <Ionicons name="close-circle" size={24} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.imagePickerButton}
+                    onPress={handleImagePicker}
+                    disabled={uploadingImage}
+                  >
+                    {uploadingImage ? (
+                      <ActivityIndicator color="#FF6B35" />
+                    ) : (
+                      <>
+                        <Ionicons name="image-outline" size={24} color="#FF6B35" />
+                        <Text style={styles.imagePickerText}>
+                          Επιλέξτε Εικόνα
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
 
               {selectedProduct?.id &&
@@ -307,23 +437,66 @@ export default function ProductsScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveButton}
-                onPress={() => {
-                  if (selectedProduct) {
+                onPress={async () => {
+                  if (!selectedProduct) return;
+
+                  // Validation
+                  if (!selectedProduct.name || selectedProduct.name.trim() === '') {
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Σφάλμα',
+                      text2: 'Το όνομα είναι υποχρεωτικό',
+                    });
+                    return;
+                  }
+
+                  if (!selectedProduct.price || selectedProduct.price <= 0) {
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Σφάλμα',
+                      text2: 'Η τιμή πρέπει να είναι μεγαλύτερη από 0',
+                    });
+                    return;
+                  }
+
+                  if (!storeId) {
+                    Toast.show({
+                      type: 'error',
+                      text1: 'Σφάλμα',
+                      text2: 'Δεν έχει οριστεί Store ID',
+                    });
+                    return;
+                  }
+
+                  try {
                     if (products.find((p) => p.id === selectedProduct.id)) {
-                      updateProduct(selectedProduct.id, selectedProduct);
+                      // Update existing product
+                      await updateProduct(selectedProduct.id, {
+                        name: selectedProduct.name,
+                        description: selectedProduct.description,
+                        price: selectedProduct.price,
+                        category: selectedProduct.category,
+                        imageUrl: selectedProduct.imageUrl,
+                        available: selectedProduct.available,
+                      });
                     } else {
                       // Add new product
-                      if (selectedProduct.name && selectedProduct.price > 0) {
-                        addProduct(selectedProduct);
-                      }
+                      await addProduct({
+                        storeId: storeId,
+                        name: selectedProduct.name,
+                        description: selectedProduct.description,
+                        price: selectedProduct.price,
+                        category: selectedProduct.category,
+                        imageUrl: selectedProduct.imageUrl,
+                        available: selectedProduct.available ?? true,
+                        featured: selectedProduct.featured ?? false,
+                      });
                     }
                     setIsEditModalVisible(false);
                     setSelectedProduct(null);
-                    Toast.show({
-                      type: 'success',
-                      text1: 'Αποθηκεύτηκε',
-                      text2: 'Το προϊόν αποθηκεύτηκε',
-                    });
+                  } catch (error: any) {
+                    // Error is already handled in ProductsContext
+                    console.error('Error saving product:', error);
                   }
                 }}
               >
@@ -426,6 +599,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  productImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: '#F3F4F6',
   },
   productInfo: {
     flex: 1,
@@ -592,6 +772,42 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  imagePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FF6B35',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 20,
+    backgroundColor: '#FFF5F2',
+  },
+  imagePickerText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#FF6B35',
+    fontWeight: '500',
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    width: '100%',
+    alignItems: 'center',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 4,
   },
 });
 

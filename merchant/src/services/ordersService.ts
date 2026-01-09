@@ -40,6 +40,21 @@ export interface OrderItem {
   notes?: string;
 }
 
+// Helper function to convert Decimal strings to numbers
+const convertOrderToNumber = (order: any): Order => {
+  return {
+    ...order,
+    subtotal: typeof order.subtotal === 'string' ? Number(order.subtotal) : order.subtotal,
+    deliveryFee: typeof order.deliveryFee === 'string' ? Number(order.deliveryFee) : order.deliveryFee,
+    discount: typeof order.discount === 'string' ? Number(order.discount) : order.discount,
+    total: typeof order.total === 'string' ? Number(order.total) : order.total,
+    items: order.items?.map((item: any) => ({
+      ...item,
+      price: typeof item.price === 'string' ? Number(item.price) : item.price,
+    })) || [],
+  };
+};
+
 export const ordersService = {
   // Get all orders
   async getAll(filters?: {
@@ -53,13 +68,15 @@ export const ordersService = {
     const query = params.toString();
     const endpoint = query ? `/orders?${query}` : '/orders';
     const response = await api.get<Order[]>(endpoint);
-    return response.data || [];
+    const orders = response.data || [];
+    return orders.map(convertOrderToNumber);
   },
 
   // Get order by ID
   async getById(orderId: string): Promise<Order | null> {
     const response = await api.get<Order>(`/orders/${orderId}`);
-    return response.data || null;
+    if (!response.data) return null;
+    return convertOrderToNumber(response.data);
   },
 
   // Get orders by store
@@ -68,7 +85,8 @@ export const ordersService = {
       ? `/orders/store/${storeId}?status=${status}`
       : `/orders/store/${storeId}`;
     const response = await api.get<Order[]>(endpoint);
-    return response.data || [];
+    const orders = response.data || [];
+    return orders.map(convertOrderToNumber);
   },
 
   // Get orders by status
@@ -77,13 +95,15 @@ export const ordersService = {
       ? `/orders/status/${status}?storeId=${storeId}`
       : `/orders/status/${status}`;
     const response = await api.get<Order[]>(endpoint);
-    return response.data || [];
+    const orders = response.data || [];
+    return orders.map(convertOrderToNumber);
   },
 
   // Update order status
   async updateStatus(orderId: string, status: OrderStatus): Promise<Order | null> {
     const response = await api.patch<Order>(`/orders/${orderId}/status`, { status });
-    return response.data || null;
+    if (!response.data) return null;
+    return convertOrderToNumber(response.data);
   },
 };
 

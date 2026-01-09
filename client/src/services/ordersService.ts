@@ -41,23 +41,41 @@ export interface Order {
   customer?: any;
 }
 
+// Helper function to convert Decimal strings to numbers
+const convertOrderToNumber = (order: any): Order => {
+  return {
+    ...order,
+    subtotal: typeof order.subtotal === 'string' ? Number(order.subtotal) : order.subtotal,
+    deliveryFee: typeof order.deliveryFee === 'string' ? Number(order.deliveryFee) : order.deliveryFee,
+    discount: typeof order.discount === 'string' ? Number(order.discount) : order.discount,
+    total: typeof order.total === 'string' ? Number(order.total) : order.total,
+    items: order.items?.map((item: any) => ({
+      ...item,
+      price: typeof item.price === 'string' ? Number(item.price) : item.price,
+    })) || [],
+  };
+};
+
 export const ordersService = {
   // Create new order
   async create(orderData: CreateOrderInput): Promise<Order | null> {
     const response = await api.post<Order>('/orders', orderData);
-    return response.data || null;
+    if (!response.data) return null;
+    return convertOrderToNumber(response.data);
   },
 
   // Get order by ID
   async getById(orderId: string): Promise<Order | null> {
     const response = await api.get<Order>(`/orders/${orderId}`);
-    return response.data || null;
+    if (!response.data) return null;
+    return convertOrderToNumber(response.data);
   },
 
   // Get orders by customer
   async getByCustomer(customerId: string): Promise<Order[]> {
     const response = await api.get<Order[]>(`/orders?customerId=${customerId}`);
-    return response.data || [];
+    const orders = response.data || [];
+    return orders.map(convertOrderToNumber);
   },
 };
 

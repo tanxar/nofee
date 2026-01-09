@@ -21,6 +21,18 @@ const updateProductSchema = createProductSchema.partial().extend({
   storeId: z.string().uuid().optional(),
 });
 
+// Helper function to convert Decimal to number
+function convertProductToJSON(product: any) {
+  return {
+    ...product,
+    price: typeof product.price === 'object' && product.price !== null
+      ? parseFloat(product.price.toString())
+      : typeof product.price === 'string'
+      ? parseFloat(product.price)
+      : product.price,
+  };
+}
+
 export const productsController = {
   // GET /api/products - Get all products
   async getAll(req: Request, res: Response) {
@@ -34,7 +46,8 @@ export const productsController = {
       if (featured !== undefined) filters.featured = featured === 'true';
 
       const products = await ProductModel.findAll(filters);
-      res.json({ success: true, data: products });
+      const convertedProducts = products.map(convertProductToJSON);
+      res.json({ success: true, data: convertedProducts });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -50,7 +63,7 @@ export const productsController = {
         return res.status(404).json({ success: false, error: 'Product not found' });
       }
 
-      res.json({ success: true, data: product });
+      res.json({ success: true, data: convertProductToJSON(product) });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -66,7 +79,8 @@ export const productsController = {
         category: category as string | undefined,
         available: available === 'true' ? true : available === 'false' ? false : undefined,
       });
-      res.json({ success: true, data: products });
+      const convertedProducts = products.map(convertProductToJSON);
+      res.json({ success: true, data: convertedProducts });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -82,7 +96,8 @@ export const productsController = {
         category,
         storeId as string | undefined
       );
-      res.json({ success: true, data: products });
+      const convertedProducts = products.map(convertProductToJSON);
+      res.json({ success: true, data: convertedProducts });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -104,7 +119,7 @@ export const productsController = {
     try {
       const validatedData = createProductSchema.parse(req.body);
       const product = await ProductModel.create(validatedData);
-      res.status(201).json({ success: true, data: product });
+      res.status(201).json({ success: true, data: convertProductToJSON(product) });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -124,7 +139,7 @@ export const productsController = {
       const validatedData = updateProductSchema.parse(req.body);
 
       const product = await ProductModel.update(id, validatedData);
-      res.json({ success: true, data: product });
+      res.json({ success: true, data: convertProductToJSON(product) });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -153,7 +168,7 @@ export const productsController = {
     try {
       const { id } = req.params;
       const product = await ProductModel.toggleAvailability(id);
-      res.json({ success: true, data: product });
+      res.json({ success: true, data: convertProductToJSON(product) });
     } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }

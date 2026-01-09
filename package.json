@@ -9,7 +9,10 @@
     "merchant:start": "cd merchant && npm start",
     "merchant:android": "cd merchant && npm run android",
     "merchant:ios": "cd merchant && npm run ios",
-    "install:all": "npm install && cd client && npm install && cd ../merchant && npm install"
+    "backend:start": "cd backend && npm run dev",
+    "backend:migrate": "cd backend && npm run prisma:migrate",
+    "backend:studio": "cd backend && npm run prisma:studio",
+    "install:all": "npm install && cd client && npm install && cd ../merchant && npm install && cd ../backend && npm install"
   }
 }
 

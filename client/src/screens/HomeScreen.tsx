@@ -18,6 +18,7 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { restaurants, categories, Restaurant } from '../data/mockData';
 import { useCart } from '../context/CartContext';
 import { useFavorites } from '../context/FavoritesContext';
+import { useStores } from '../context/StoresContext';
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
@@ -26,6 +27,7 @@ export default function HomeScreen() {
   const navigation = useNavigation();
   const { getTotalItems, clearCart } = useCart();
   const { toggleFavorite, isFavorite } = useFavorites();
+  const { stores, loading: storesLoading, refreshStores } = useStores();
   const [selectedCategory, setSelectedCategory] = useState('1');
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,12 +40,30 @@ export default function HomeScreen() {
     clearCartRef.current = clearCart;
   }, [clearCart]);
 
-  const onRefresh = React.useCallback(() => {
+  // Convert backend stores to Restaurant format
+  const backendStoresAsRestaurants: Restaurant[] = stores.map((store) => ({
+    id: store.id,
+    name: store.name,
+    cuisine: store.description || 'Γρήγορο Φαγητό',
+    rating: 4.5, // Default rating
+    deliveryTime: `${store.estimatedDeliveryTime}-${store.estimatedDeliveryTime + 10} λεπτά`,
+    deliveryFee: Number(store.deliveryFee),
+    minOrder: Number(store.minOrderAmount),
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400', // Default image
+    distance: '1.0 km', // Default distance
+    isPromoted: false,
+  }));
+
+  // Combine mock restaurants with backend stores
+  const allRestaurants = [...restaurants, ...backendStoresAsRestaurants];
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
+    await refreshStores();
     setTimeout(() => {
       setRefreshing(false);
     }, 1000);
-  }, []);
+  }, [refreshStores]);
 
   // Καθαρισμός καλαθιού όταν επιστρέφει στην αρχική
   useFocusEffect(
@@ -53,7 +73,7 @@ export default function HomeScreen() {
   );
 
   // Error handling
-  if (!restaurants || restaurants.length === 0) {
+  if (!allRestaurants || allRestaurants.length === 0) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -65,8 +85,8 @@ export default function HomeScreen() {
 
   // Filter and sort restaurants
   let filteredRestaurants = selectedCategory === '1'
-    ? restaurants
-    : restaurants.filter((r) => {
+    ? allRestaurants
+    : allRestaurants.filter((r) => {
         const categoryName = categories.find((c) => c.id === selectedCategory)?.name;
         return r.cuisine.toLowerCase().includes(categoryName?.toLowerCase() || '');
       });
@@ -95,7 +115,7 @@ export default function HomeScreen() {
     }
   });
 
-  const promotedRestaurants = restaurants.filter((r) => r.isPromoted);
+  const promotedRestaurants = allRestaurants.filter((r) => r.isPromoted);
 
   return (
     <SafeAreaView style={styles.container}>

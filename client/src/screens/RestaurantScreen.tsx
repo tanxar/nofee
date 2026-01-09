@@ -30,6 +30,7 @@ import Animated, {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { restaurants, menuItems, Restaurant, MenuItem, MenuItemExtra } from '../data/mockData';
 import { useCart } from '../context/CartContext';
+import { useStores } from '../context/StoresContext';
 import CartModal from '../components/CartModal';
 import ProductModal from '../components/ProductModal';
 import * as Haptics from 'expo-haptics';
@@ -48,15 +49,17 @@ export default function RestaurantScreen() {
   useEffect(() => {
     try {
       const params = route.params as { restaurantId?: string } | undefined;
-      if (params?.restaurantId) {
-        setRestaurantId(params.restaurantId);
+      const id = params?.restaurantId;
+      if (id && typeof id === 'string') {
+        setRestaurantId(id);
       }
     } catch (e) {
       console.error('Error accessing route params:', e);
     }
-  }, [route.params]);
+  }, []);
   
   const { addToCart, getTotalItems, cartItems } = useCart();
+  const { getStoreById, getStoreProducts, stores } = useStores();
   const [cartModalVisible, setCartModalVisible] = useState(false);
   const [productModalVisible, setProductModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
@@ -64,6 +67,8 @@ export default function RestaurantScreen() {
   const [isScrolling, setIsScrolling] = useState(false);
   const [isNavSticky, setIsNavSticky] = useState(false);
   const [stickyNavPointerEvents, setStickyNavPointerEvents] = useState<'auto' | 'none'>('none');
+  const [backendProducts, setBackendProducts] = useState<any[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const categoryRefs = useRef<{ [key: string]: View | null }>({});
   const categoryHeights = useRef<{ [key: string]: number }>({});
   const categoryAbsolutePositions = useRef<{ [key: string]: number }>({});
@@ -78,8 +83,57 @@ export default function RestaurantScreen() {
   const scrollViewRef = useRef<Animated.ScrollView>(null);
   const categoryNavRef = useRef<ScrollView>(null);
 
-  const restaurant = restaurantId ? restaurants.find((r) => r.id === restaurantId) : undefined;
-  const menu = restaurantId ? (menuItems[restaurantId] || []) : [];
+  // Check if restaurantId is a UUID (backend store) or mock store ID
+  const isBackendStore = restaurantId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(restaurantId);
+  
+  // Get restaurant/store info
+  const mockRestaurant = restaurantId && !isBackendStore ? restaurants.find((r) => r.id === restaurantId) : undefined;
+  const backendStore = restaurantId && isBackendStore ? getStoreById(restaurantId) : undefined;
+  
+  // Use backend store if available, otherwise use mock restaurant
+  const restaurant = isBackendStore && backendStore ? {
+    id: backendStore.id,
+    name: backendStore.name,
+    cuisine: backendStore.description || 'Γρήγορο Φαγητό',
+    rating: 4.5,
+    deliveryTime: `${backendStore.estimatedDeliveryTime}-${backendStore.estimatedDeliveryTime + 10} λεπτά`,
+    deliveryFee: Number(backendStore.deliveryFee),
+    minOrder: Number(backendStore.minOrderAmount),
+    image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=400',
+    distance: '1.0 km',
+    isPromoted: false,
+  } : mockRestaurant;
+
+  // Load backend products if it's a backend store
+  useEffect(() => {
+    if (restaurantId && isBackendStore) {
+      setLoadingProducts(true);
+      getStoreProducts(restaurantId)
+        .then((products) => {
+          // Convert backend products to MenuItem format
+          const convertedProducts: MenuItem[] = products.map((product) => ({
+            id: product.id,
+            name: product.name,
+            description: product.description || '',
+            price: Number(product.price),
+            image: product.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400',
+            category: product.category || 'Άλλα',
+            isPopular: product.featured || false,
+          }));
+          setBackendProducts(convertedProducts);
+        })
+        .catch((error) => {
+          console.error('Error loading products:', error);
+          setBackendProducts([]);
+        })
+        .finally(() => {
+          setLoadingProducts(false);
+        });
+    }
+  }, [restaurantId, isBackendStore, getStoreProducts]);
+
+  // Use backend products if available, otherwise use mock menu
+  const menu = isBackendStore ? backendProducts : (restaurantId ? (menuItems[restaurantId] || []) : []);
 
   const popularItems = menu.filter((item) => item.isPopular);
   const categories = Array.from(new Set(menu.map((item) => item.category)));
@@ -310,8 +364,22 @@ export default function RestaurantScreen() {
   }, [categories]);
 
   // Confirmation dialog όταν προσπαθεί να βγει με προϊόντα
+  // Αλλά όχι όταν πηγαίνει στο Checkout ή OrderStatus
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      const action = e.data.action;
+      
+      // Allow navigation to Checkout or OrderStatus screens
+      if (
+        action.type === 'RESET' ||
+        (action.type === 'NAVIGATE' && 
+         (action.payload?.name === 'Checkout' || action.payload?.name === 'OrderStatus'))
+      ) {
+        // Allow navigation to proceed
+        return;
+      }
+      
+      // Only show alert if trying to go back with items in cart
       if (cartItems.length > 0) {
         e.preventDefault();
         Alert.alert(
@@ -336,11 +404,31 @@ export default function RestaurantScreen() {
   }, [navigation, cartItems.length]);
 
   // Early return after all hooks - check for missing restaurantId or restaurant not found
-  if (!restaurantId || !restaurant) {
+  if (!restaurantId) {
     return (
       <View style={styles.container}>
-        <Text>{!restaurantId ? 'Restaurant ID not provided' : 'Restaurant not found'}</Text>
+        <Text>Restaurant ID not provided</Text>
       </View>
+    );
+  }
+
+  if (isBackendStore && loadingProducts) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Φόρτωση προϊόντων...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!restaurant) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Το εστιατόριο δεν βρέθηκε</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 

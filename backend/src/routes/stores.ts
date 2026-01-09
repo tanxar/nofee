@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { storesController } from '../controllers/storesController';
+import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -15,11 +16,11 @@ router.get('/', storesController.getAll);
 // Get store by ID
 router.get('/:id', storesController.getById);
 
-// Create store
-router.post('/', storesController.create);
+// Create store (merchant only)
+router.post('/', authenticate, requireRole(['merchant']), storesController.create);
 
-// Update store
-router.patch('/:id', storesController.update);
+// Update store (merchant only)
+router.patch('/:id', authenticate, requireRole(['merchant']), storesController.update);
 
 export default router;
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { ordersController } from '../controllers/ordersController';
+import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -15,11 +16,11 @@ router.get('/store/:storeId', ordersController.getByStore);
 // Get order by ID
 router.get('/:id', ordersController.getById);
 
-// Create new order
-router.post('/', ordersController.create);
+// Create new order (customer only)
+router.post('/', authenticate, requireRole(['customer']), ordersController.create);
 
-// Update order status
-router.patch('/:id/status', ordersController.updateStatus);
+// Update order status (merchant only)
+router.patch('/:id/status', authenticate, requireRole(['merchant']), ordersController.updateStatus);
 
 export default router;
 

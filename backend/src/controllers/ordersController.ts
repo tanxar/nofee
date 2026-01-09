@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { OrderModel } from '../models/Order';
 import { z } from 'zod';
+import { emitToStore } from '../config/socket';
 
 // Validation schemas
 const createOrderSchema = z.object({
@@ -66,6 +67,10 @@ export const ordersController = {
       const validatedData = createOrderSchema.parse(req.body);
 
       const order = await OrderModel.create(validatedData);
+      
+      // Emit WebSocket event to store
+      emitToStore(validatedData.storeId, 'new-order', order);
+      
       res.status(201).json({ success: true, data: order });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -86,6 +91,12 @@ export const ordersController = {
       const validatedData = updateStatusSchema.parse(req.body);
 
       const order = await OrderModel.updateStatus(id, validatedData.status);
+      
+      // Emit WebSocket event to store
+      if (order) {
+        emitToStore(order.storeId, 'order-updated', order);
+      }
+      
       res.json({ success: true, data: order });
     } catch (error: any) {
       if (error instanceof z.ZodError) {

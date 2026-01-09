@@ -44,6 +44,14 @@ export interface UpdateProductInput {
   tags?: string[];
 }
 
+// Helper function to convert Decimal strings to numbers
+const convertProductToNumber = (product: any): Product => {
+  return {
+    ...product,
+    price: typeof product.price === 'string' ? Number(product.price) : product.price,
+  };
+};
+
 export const productsService = {
   // Get all products
   async getAll(filters?: {
@@ -61,13 +69,15 @@ export const productsService = {
     const query = params.toString();
     const endpoint = query ? `/products?${query}` : '/products';
     const response = await api.get<Product[]>(endpoint);
-    return response.data || [];
+    const products = response.data || [];
+    return products.map(convertProductToNumber);
   },
 
   // Get product by ID
   async getById(productId: string): Promise<Product | null> {
     const response = await api.get<Product>(`/products/${productId}`);
-    return response.data || null;
+    if (!response.data) return null;
+    return convertProductToNumber(response.data);
   },
 
   // Get products by store
@@ -84,7 +94,8 @@ export const productsService = {
       ? `/products/store/${storeId}?${query}`
       : `/products/store/${storeId}`;
     const response = await api.get<Product[]>(endpoint);
-    return response.data || [];
+    const products = response.data || [];
+    return products.map(convertProductToNumber);
   },
 
   // Get products by category
@@ -93,7 +104,8 @@ export const productsService = {
       ? `/products/category/${category}?storeId=${storeId}`
       : `/products/category/${category}`;
     const response = await api.get<Product[]>(endpoint);
-    return response.data || [];
+    const products = response.data || [];
+    return products.map(convertProductToNumber);
   },
 
   // Get all categories
@@ -108,13 +120,15 @@ export const productsService = {
   // Create product
   async create(productData: CreateProductInput): Promise<Product | null> {
     const response = await api.post<Product>('/products', productData);
-    return response.data || null;
+    if (!response.data) return null;
+    return convertProductToNumber(response.data);
   },
 
   // Update product
   async update(productId: string, updates: UpdateProductInput): Promise<Product | null> {
     const response = await api.patch<Product>(`/products/${productId}`, updates);
-    return response.data || null;
+    if (!response.data) return null;
+    return convertProductToNumber(response.data);
   },
 
   // Delete product
@@ -126,7 +140,8 @@ export const productsService = {
   // Toggle availability
   async toggleAvailability(productId: string): Promise<Product | null> {
     const response = await api.patch<Product>(`/products/${productId}/toggle`);
-    return response.data || null;
+    if (!response.data) return null;
+    return convertProductToNumber(response.data);
   },
 };
 

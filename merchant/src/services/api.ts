@@ -38,9 +38,19 @@ class ApiService {
     try {
       const url = `${this.baseURL}${endpoint}`;
       const headers: HeadersInit = {
-        'Content-Type': 'application/json',
         ...options.headers,
       };
+
+      // Only set Content-Type if not FormData
+      // React Native FormData will set Content-Type automatically with boundary
+      const isFormData = options.body instanceof FormData;
+      if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+      } else {
+        // Remove Content-Type for FormData - React Native handles it
+        delete (headers as any)['Content-Type'];
+        delete (headers as any)['content-type'];
+      }
 
       // Add auth token if available
       if (this.token) {
@@ -81,10 +91,28 @@ class ApiService {
   }
 
   // POST request
-  async post<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, body?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+    // If body is FormData, don't stringify it and don't set Content-Type
+    const isFormData = body instanceof FormData;
+    
+    // For FormData, remove Content-Type header (let browser set it with boundary)
+    const headers: HeadersInit = isFormData
+      ? { ...options?.headers }
+      : {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        };
+    
+    // Remove Content-Type from headers if FormData (React Native needs this)
+    if (isFormData && headers['Content-Type']) {
+      delete headers['Content-Type'];
+    }
+    
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
+      ...options,
+      headers,
     });
   }
 
